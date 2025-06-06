@@ -1,0 +1,41 @@
+{
+	"name": "@noema/canopy",
+	"version": "0.0.0",
+	"type": "module",
+	"sideEffects": false,
+	"scripts": {
+		"dev": "tsc --watch -p tsconfig.build.json",
+		"build": "del dist && tsc -p tsconfig.build.json",
+		"test": "vitest",
+		"typecheck": "tsc --noEmit",
+		"prepublishOnly": "pnpm build"
+	},
+	"dependencies": {
+		"@humanfs/core": "^0.19.1",
+		"@humanfs/memory": "^0.19.5",
+		"@humanfs/node": "^0.16.6",
+		"@humanfs/types": "^0.15.0",
+		"ignore": "^7.0.5",
+		"pathe": "^2.0.3",
+		"uint8array-extras": "^1.4.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.15.29",
+		"del-cli": "^6.0.0",
+		"prettier": "^3.4.2",
+		"tsx": "^4.19.4",
+		"typescript": "~5.8.3",
+		"vitest": "^3.1.3"
+	},
+	"files": [
+		"dist"
+	],
+	"repository": {
+		"url": "https://github.com/noemaia/mfs"
+	},
+	"packageManager": "pnpm@10.9.0+sha512.0486e394640d3c1fb3c9d43d49cf92879ff74f8516959c235308f5a8f62e2e19528a65cdc2a3058f587cde71eba3d5b56327c8c33a97e4c4051ca48a10ca2d5f",
+	"exports": {
+		".": "./dist/index.js",
+		"./utils/*": "./dist/utils/*.js"
+	}
+}
