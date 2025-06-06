@@ -1,3 +1,6 @@
+import { MemoryHfs } from '@humanfs/memory'
+import { Canopy } from './canopy.js'
+
 export { Canopy } from './canopy.js'
 
 export type {
@@ -22,3 +25,5 @@ export {
 	isFileNode,
 	isTreeNode,
 } from './is.js'
+
+export const canopy = new Canopy(new MemoryHfs())
