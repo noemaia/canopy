@@ -39,15 +39,15 @@ export class Canopy {
 
 	async hydrate(input: TreeStructure | DirectoryNode) {
 		if (isDirectoryNode(input)) {
-			await this.#writeDirectoryNode(input)
+			await this.#writeDirectoryNode(input, this.#root)
 		} else {
-			await this.#writeTree(input)
+			await this.#writeTree(input, this.#root)
 		}
 	}
 
-	async #writeDirectoryNode(node: DirectoryNode, basePath?: string) {
+	async #writeDirectoryNode(node: DirectoryNode, basePath: string) {
 		for (const child of node.children) {
-			const childPath = basePath ? `${basePath}/${child.name}` : child.name
+			const childPath = join(basePath, child.path)
 
 			if (isFileNode(child)) {
 				await this.#hfs.write(childPath, child.content)
@@ -58,13 +58,13 @@ export class Canopy {
 		}
 	}
 
-	async #writeTree(tree: TreeStructure, basePath?: string) {
+	async #writeTree(tree: TreeStructure, basePath: string) {
 		for (const [name, node] of Object.entries(tree)) {
-			const fullPath = basePath ? `${basePath}/${name}` : name
+			const fullPath = join(basePath, name)
 
 			if (typeof node === 'string') {
 				await this.#hfs.write(fullPath, node)
-				return
+				continue
 			}
 
 			if (typeof node === 'object') {
