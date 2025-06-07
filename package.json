@@ -39,6 +39,8 @@
 		".": "./dist/index.js",
 		"./node": "./dist/node.js",
 		"./memory": "./dist/memory.js",
+		"./is": "./dist/is.js",
+		"./path": "./dist/path.js",
 		"./utils/*": "./dist/utils/*.js"
 	}
 }
