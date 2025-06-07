@@ -88,7 +88,7 @@ export class Canopy {
 		filePath: string,
 		options?: { type?: T },
 	): Promise<FileContent<T>> {
-		const path = this.#resolvePath(filePath)
+		const path = this.resolvePath(filePath)
 
 		const { type = 'text' } = options ?? {}
 		if (type === 'bytes') {
@@ -109,13 +109,13 @@ export class Canopy {
 		filePath: string,
 		contents: string | ArrayBuffer | ArrayBufferView,
 	): Promise<void> {
-		const path = this.#resolvePath(filePath)
+		const path = this.resolvePath(filePath)
 		await this.#hfs.write(path, contents)
 	}
 
 	async copy(source: string, destination: string): Promise<void> {
-		const sourcePath = this.#resolvePath(source)
-		const destinationPath = this.#resolvePath(destination)
+		const sourcePath = this.resolvePath(source)
+		const destinationPath = this.resolvePath(destination)
 		const isFile = await this.#hfs.isFile(sourcePath)
 
 		if (isFile) {
@@ -126,8 +126,8 @@ export class Canopy {
 	}
 
 	async move(source: string, destination: string): Promise<void> {
-		const sourcePath = this.#resolvePath(source)
-		const destinationPath = this.#resolvePath(destination)
+		const sourcePath = this.resolvePath(source)
+		const destinationPath = this.resolvePath(destination)
 		const isFile = await this.#hfs.isFile(source)
 
 		if (isFile) {
@@ -138,12 +138,24 @@ export class Canopy {
 	}
 
 	async delete(path: string): Promise<boolean> {
-		const resolvedPath = this.#resolvePath(path)
+		const resolvedPath = this.resolvePath(path)
 		const isDirectory = await this.#hfs.isDirectory(resolvedPath)
 		if (isDirectory) {
 			return await this.#hfs.deleteAll(resolvedPath)
 		}
 		return await this.#hfs.delete(resolvedPath)
+	}
+
+	async file(filePath: string): Promise<FileNode | undefined> {
+		const resolved = this.resolvePath(filePath)
+
+		for await (const { entry, path } of this.walk(dirname(resolved))) {
+			if (entry.isFile && resolved === path) {
+				const file = await this.createNode(path, entry)
+				assertFileNode(file)
+				return file
+			}
+		}
 	}
 
 	async *files(
@@ -164,7 +176,7 @@ export class Canopy {
 	async tree(dirPath?: string, filter?: Filter): Promise<DirectoryNode> {
 		const entries = this.walk(dirPath, filter)
 		const nodeMap = new Map<string, TreeNode>()
-		const resolvedPath = this.#resolvePath(dirPath)
+		const resolvedPath = this.resolvePath(dirPath)
 		const parsed = parse(resolvedPath)
 		const modified = await this.#hfs.lastModified(resolvedPath)
 
@@ -194,7 +206,7 @@ export class Canopy {
 		return rootNode
 	}
 
-	private async createNode(
+	protected async createNode(
 		path: string,
 		entry: HfsWalkEntry,
 	): Promise<TreeNode> {
@@ -233,7 +245,7 @@ export class Canopy {
 	}
 
 	list(dirPath: string = this.#root) {
-		const resolvedPath = this.#resolvePath(dirPath)
+		const resolvedPath = this.resolvePath(dirPath)
 		return this.#hfs.list(resolvedPath)
 	}
 
@@ -241,7 +253,7 @@ export class Canopy {
 		dirPath?: string,
 		filter?: Filter,
 	): AsyncIterable<{ path: string; entry: HfsWalkEntry }> {
-		const resolvedPath = this.#resolvePath(dirPath)
+		const resolvedPath = this.resolvePath(dirPath)
 		const filterFn = this.#createFilter(filter)
 		for await (const entry of this.#hfs.walk(resolvedPath, {
 			directoryFilter: filterFn,
@@ -271,7 +283,7 @@ export class Canopy {
 		return patternsOrFilter
 	}
 
-	#resolvePath(relativePath?: string): string {
+	protected resolvePath(relativePath?: string): string {
 		if (!relativePath) {
 			return this.#root
 		}
