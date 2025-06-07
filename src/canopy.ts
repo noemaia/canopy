@@ -223,7 +223,7 @@ export class Canopy {
 		if (entry.isFile) {
 			const size = await this.#hfs.size(path)
 			const content = await this.read(path)
-			if (!content) {
+			if (typeof content === 'undefined') {
 				throw Error(`Error reading ${path}`)
 			}
 			return {
