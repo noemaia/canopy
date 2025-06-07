@@ -1,8 +1,8 @@
 import { NodeHfs } from '@humanfs/node'
-import { Canopy } from './canopy.js'
+import { Canopy, type CanopyOptions } from './canopy.js'
 
-export function createCanopy(): Canopy {
-	return new Canopy(new NodeHfs())
+export function createCanopy(opts?: CanopyOptions): Canopy {
+	return new Canopy(new NodeHfs(), opts)
 }
 
 export const canopy = createCanopy()

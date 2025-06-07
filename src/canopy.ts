@@ -16,14 +16,22 @@ import type {
 	TreeStructure,
 } from './types.js'
 
+export interface CanopyOptions {
+	/**
+	 * The base directory for resolving relative paths.
+	 * @example { dir: import.meta.dirname } // Resolves relative paths from the executing file
+	 */
+	dir?: string
+}
+
 export class Canopy {
 	#hfs: Hfs
 	#root = '.' // MemoryHfs treats `.` as the root
 
-	constructor(hfs: Hfs, opts?: { root?: string }) {
+	constructor(hfs: Hfs, opts?: CanopyOptions) {
 		this.#hfs = hfs
-		if (opts?.root) {
-			this.#root = opts.root
+		if (opts?.dir) {
+			this.#root = opts.dir
 		}
 	}
 
@@ -253,7 +261,7 @@ export class Canopy {
 		if (isAbsolute(relativePath)) {
 			return relativePath
 		}
-		return resolve(import.meta.dirname, relativePath)
+		return resolve(this.#root, relativePath)
 	}
 
 	logStart(name: string) {
