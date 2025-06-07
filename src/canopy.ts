@@ -3,7 +3,7 @@ import type { HfsWalkEntry } from '@humanfs/types'
 import ignore from 'ignore'
 import { dirname, isAbsolute, join, parse, resolve } from 'pathe'
 import { uint8ArrayToBase64 } from 'uint8array-extras'
-import { isDirectoryNode, isFileNode } from './is.js'
+import { assertFileNode, isDirectoryNode, isFileNode } from './is.js'
 import type {
 	BaseNode,
 	ContentType,
@@ -15,6 +15,8 @@ import type {
 	TreeNode,
 	TreeStructure,
 } from './types.js'
+
+const defaultIgnore = ['node_modules', '.git', '.DS_Store']
 
 export interface CanopyOptions {
 	/**
@@ -144,6 +146,21 @@ export class Canopy {
 		return await this.#hfs.delete(resolvedPath)
 	}
 
+	async *files(
+		dirPath?: string,
+		filter: Filter = defaultIgnore,
+	): AsyncIterable<FileNode> {
+		for await (const { entry, path } of this.walk(dirPath, filter)) {
+			if (entry.isDirectory) {
+				continue
+			}
+
+			const file = await this.createNode(path, entry)
+			assertFileNode(file)
+			yield file
+		}
+	}
+
 	async tree(dirPath?: string, filter?: Filter): Promise<DirectoryNode> {
 		const entries = this.walk(dirPath, filter)
 		const nodeMap = new Map<string, TreeNode>()
@@ -163,7 +180,7 @@ export class Canopy {
 
 		nodeMap.set(resolvedPath, rootNode)
 
-		for await (const [path, entry] of entries) {
+		for await (const { path, entry } of entries) {
 			const node = await this.createNode(path, entry)
 
 			nodeMap.set(path, node)
@@ -223,15 +240,15 @@ export class Canopy {
 	async *walk(
 		dirPath?: string,
 		filter?: Filter,
-	): AsyncIterable<[string, HfsWalkEntry]> {
+	): AsyncIterable<{ path: string; entry: HfsWalkEntry }> {
 		const resolvedPath = this.#resolvePath(dirPath)
 		const filterFn = this.#createFilter(filter)
-		for await (const entry of this.#hfs.walk('.', {
+		for await (const entry of this.#hfs.walk(resolvedPath, {
 			directoryFilter: filterFn,
 			entryFilter: filterFn,
 		})) {
-			const path = join(resolvedPath, entry.path)
-			yield [path, entry]
+			const path = resolve(resolvedPath, entry.path)
+			yield { path, entry }
 		}
 	}
 

@@ -1,6 +1,8 @@
 import { MemoryHfs } from '@humanfs/memory'
 import { Canopy as BaseCanopy, type CanopyOptions } from './canopy.js'
 
+export type { CanopyOptions } from './canopy.js'
+
 export class Canopy extends BaseCanopy {
 	constructor(opts?: CanopyOptions) {
 		super(new MemoryHfs(), opts)
