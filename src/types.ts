@@ -1,4 +1,7 @@
+import { Hfs } from '@humanfs/core'
 import { HfsWalkEntry } from '@humanfs/types'
+
+export type LogEntries = ReturnType<Hfs['logEnd']>
 
 export type ContentType = 'text' | 'json' | 'bytes' | 'base64'
 

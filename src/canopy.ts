@@ -11,6 +11,7 @@ import type {
 	FileContent,
 	FileNode,
 	Filter,
+	LogEntries,
 	TreeNode,
 	TreeStructure,
 } from './types.js'
@@ -74,9 +75,11 @@ export class Canopy {
 	}
 
 	async read<T extends ContentType = 'text'>(
-		path: string,
+		filePath: string,
 		options?: { type?: T },
 	): Promise<FileContent<T>> {
+		const path = this.#resolvePath(filePath)
+
 		const { type = 'text' } = options ?? {}
 		if (type === 'bytes') {
 			return (await this.#hfs.bytes(path)) as FileContent<T>
@@ -96,35 +99,41 @@ export class Canopy {
 		filePath: string,
 		contents: string | ArrayBuffer | ArrayBufferView,
 	): Promise<void> {
-		await this.#hfs.write(filePath, contents)
+		const path = this.#resolvePath(filePath)
+		await this.#hfs.write(path, contents)
 	}
 
 	async copy(source: string, destination: string): Promise<void> {
-		const isFile = await this.#hfs.isFile(source)
+		const sourcePath = this.#resolvePath(source)
+		const destinationPath = this.#resolvePath(destination)
+		const isFile = await this.#hfs.isFile(sourcePath)
 
 		if (isFile) {
-			await this.#hfs.copy(source, destination)
+			await this.#hfs.copy(sourcePath, destinationPath)
 		} else {
-			await this.#hfs.copyAll(source, destination)
+			await this.#hfs.copyAll(sourcePath, destinationPath)
 		}
 	}
 
 	async move(source: string, destination: string): Promise<void> {
+		const sourcePath = this.#resolvePath(source)
+		const destinationPath = this.#resolvePath(destination)
 		const isFile = await this.#hfs.isFile(source)
 
 		if (isFile) {
-			await this.#hfs.move(source, destination)
+			await this.#hfs.move(sourcePath, destinationPath)
 		} else {
-			await this.#hfs.moveAll(source, destination)
+			await this.#hfs.moveAll(sourcePath, destinationPath)
 		}
 	}
 
 	async delete(path: string): Promise<boolean> {
-		const isDirectory = await this.#hfs.isDirectory(path)
+		const resolvedPath = this.#resolvePath(path)
+		const isDirectory = await this.#hfs.isDirectory(resolvedPath)
 		if (isDirectory) {
-			return await this.#hfs.deleteAll(path)
+			return await this.#hfs.deleteAll(resolvedPath)
 		}
-		return await this.#hfs.delete(path)
+		return await this.#hfs.delete(resolvedPath)
 	}
 
 	async tree(dirPath?: string, filter?: Filter): Promise<DirectoryNode> {
@@ -245,5 +254,13 @@ export class Canopy {
 			return relativePath
 		}
 		return resolve(import.meta.dirname, relativePath)
+	}
+
+	logStart(name: string) {
+		this.#hfs.logStart(name)
+	}
+
+	logEnd(name: string): LogEntries {
+		return this.#hfs.logEnd(name)
 	}
 }
