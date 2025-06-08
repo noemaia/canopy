@@ -1,6 +1,8 @@
 import { DirectoryNode, FileNode, TreeNode } from './types.js'
 
-export function isTreeNode(value: unknown): value is TreeNode {
+export function isTreeNode<TContent = string>(
+	value: unknown,
+): value is TreeNode<TContent> {
 	return (
 		typeof value === 'object' &&
 		!!value &&
@@ -10,27 +12,31 @@ export function isTreeNode(value: unknown): value is TreeNode {
 	)
 }
 
-export function isFileNode(node: unknown): node is FileNode {
+export function isFileNode<TContent = string>(
+	node: unknown,
+): node is FileNode<TContent> {
 	return isTreeNode(node) && node.type === 'file'
 }
 
-export function isDirectoryNode(node: unknown): node is DirectoryNode {
+export function isDirectoryNode<TContent = string>(
+	node: unknown,
+): node is DirectoryNode<TContent> {
 	return isTreeNode(node) && node.type === 'directory'
 }
 
-export function assertFileNode(
+export function assertFileNode<TContent = string>(
 	value: unknown,
 	msg = 'value is not a file',
-): asserts value is FileNode {
+): asserts value is FileNode<TContent> {
 	if (!isFileNode(value)) {
 		throw new Error(msg)
 	}
 }
 
-export function assertDirectoryNode(
+export function assertDirectoryNode<TContent = string>(
 	value: unknown,
 	msg = 'value is not a directory',
-): asserts value is DirectoryNode {
+): asserts value is DirectoryNode<TContent> {
 	if (!isDirectoryNode(value)) {
 		throw new Error(msg)
 	}

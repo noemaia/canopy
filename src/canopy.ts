@@ -6,12 +6,14 @@ import { uint8ArrayToBase64 } from 'uint8array-extras'
 import { assertFileNode, isDirectoryNode, isFileNode } from './is.js'
 import type {
 	BaseNode,
+	ContentTransformer,
 	ContentType,
 	DirectoryNode,
 	FileContent,
 	FileNode,
 	Filter,
 	LogEntries,
+	Options,
 	TreeNode,
 	TreeStructure,
 } from './types.js'
@@ -19,10 +21,6 @@ import type {
 const defaultIgnore = ['node_modules', '.git', '.DS_Store']
 
 export interface CanopyOptions {
-	/**
-	 * The base directory for resolving relative paths.
-	 * @example { dir: import.meta.dirname } // Resolves relative paths from the executing file
-	 */
 	dir?: string
 }
 
@@ -146,41 +144,48 @@ export class Canopy {
 		return await this.#hfs.delete(resolvedPath)
 	}
 
-	async file(filePath: string): Promise<FileNode | undefined> {
+	async file<Content = string>(
+		filePath: string,
+		options?: Pick<Options<Content>, 'content'>,
+	): Promise<FileNode<Content> | undefined> {
 		const resolved = this.resolvePath(filePath)
 
 		for await (const { entry, path } of this.walk(dirname(resolved))) {
 			if (entry.isFile && resolved === path) {
-				const file = await this.createNode(path, entry)
-				assertFileNode(file)
+				const file = await this.createNode(path, entry, options?.content)
+				assertFileNode<Content>(file)
 				return file
 			}
 		}
 	}
 
-	async *files(
+	async *files<Content = string>(
 		dirPath?: string,
-		filter: Filter = defaultIgnore,
-	): AsyncIterable<FileNode> {
+		options?: Options<Content>,
+	): AsyncIterable<FileNode<Content>> {
+		const filter = options?.filter ?? defaultIgnore
 		for await (const { entry, path } of this.walk(dirPath, filter)) {
 			if (entry.isDirectory) {
 				continue
 			}
 
-			const file = await this.createNode(path, entry)
-			assertFileNode(file)
+			const file = await this.createNode(path, entry, options?.content)
+			assertFileNode<Content>(file)
 			yield file
 		}
 	}
 
-	async tree(dirPath?: string, filter?: Filter): Promise<DirectoryNode> {
-		const entries = this.walk(dirPath, filter)
-		const nodeMap = new Map<string, TreeNode>()
+	async tree<Content = string>(
+		dirPath?: string,
+		options?: Options<Content>,
+	): Promise<DirectoryNode<Content>> {
+		const entries = this.walk(dirPath, options?.filter)
+		const nodes = new Map<string, TreeNode<Content>>()
 		const resolvedPath = this.resolvePath(dirPath)
 		const parsed = parse(resolvedPath)
 		const modified = await this.#hfs.lastModified(resolvedPath)
 
-		const rootNode: DirectoryNode = {
+		const rootNode: DirectoryNode<Content> = {
 			depth: 0,
 			children: [],
 			modified,
@@ -190,14 +195,14 @@ export class Canopy {
 			name: parsed.name,
 		}
 
-		nodeMap.set(resolvedPath, rootNode)
+		nodes.set(resolvedPath, rootNode)
 
 		for await (const { path, entry } of entries) {
-			const node = await this.createNode(path, entry)
+			const node = await this.createNode(path, entry, options?.content)
 
-			nodeMap.set(path, node)
+			nodes.set(path, node)
 
-			const parentNode = nodeMap.get(dirname(path))
+			const parentNode = nodes.get(dirname(path))
 			if (parentNode?.type === 'directory') {
 				parentNode.children.push(node)
 			}
@@ -206,10 +211,11 @@ export class Canopy {
 		return rootNode
 	}
 
-	protected async createNode(
+	protected async createNode<TContent = string>(
 		path: string,
 		entry: HfsWalkEntry,
-	): Promise<TreeNode> {
+		contentTransformer?: ContentTransformer<TContent>,
+	): Promise<TreeNode<TContent>> {
 		const modified = await this.#hfs.lastModified(path)
 		const parsed = parse(path)
 		const base: BaseNode = {
@@ -222,10 +228,15 @@ export class Canopy {
 
 		if (entry.isFile) {
 			const size = await this.#hfs.size(path)
-			const content = await this.read(path)
-			if (typeof content === 'undefined') {
+			const rawContent = await this.read(path)
+			if (typeof rawContent === 'undefined') {
 				throw Error(`Error reading ${path}`)
 			}
+
+			const content = contentTransformer
+				? await contentTransformer(rawContent)
+				: (rawContent as TContent)
+
 			return {
 				isSymlink: entry.isSymlink,
 				type: 'file',
@@ -234,14 +245,14 @@ export class Canopy {
 				base: parsed.base,
 				content,
 				...base,
-			} satisfies FileNode
+			} satisfies FileNode<TContent>
 		}
 
 		return {
 			type: 'directory',
 			children: [],
 			...base,
-		} satisfies DirectoryNode
+		} satisfies DirectoryNode<TContent>
 	}
 
 	list(dirPath: string = this.#root) {
@@ -284,13 +295,10 @@ export class Canopy {
 	}
 
 	protected resolvePath(relativePath?: string): string {
-		if (!relativePath) {
-			return this.#root
-		}
-		if (isAbsolute(relativePath)) {
+		if (relativePath && isAbsolute(relativePath)) {
 			return relativePath
 		}
-		return resolve(this.#root, relativePath)
+		return resolve(this.#root, relativePath ?? '')
 	}
 
 	logStart(name: string) {

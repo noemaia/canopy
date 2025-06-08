@@ -21,18 +21,18 @@ export interface BaseNode {
 	depth: number
 }
 
-export interface FileNode extends BaseNode {
+export interface FileNode<TContent = string> extends BaseNode {
 	isSymlink: boolean
 	base: string
-	content: string
+	content: TContent
 	ext: string
 	size: number
 	type: 'file'
 }
 
-export interface DirectoryNode extends BaseNode {
+export interface DirectoryNode<TContent = string> extends BaseNode {
 	type: 'directory'
-	children: TreeNode[]
+	children: TreeNode<TContent>[]
 }
 
 // Represents a symlink pointing to another location
@@ -40,7 +40,9 @@ export interface SymlinkNode {
 	file: string
 }
 
-export type TreeNode = FileNode | DirectoryNode
+export type TreeNode<TContent = string> =
+	| FileNode<TContent>
+	| DirectoryNode<TContent>
 
 export type JsonObject = { [Key in string]: JsonValue } & {
 	[Key in string]?: JsonValue | undefined
@@ -58,6 +60,21 @@ export type JsonValue = JsonPrimitive | JsonObject | JsonArray
 export type Filter =
 	| string[]
 	| ((entry: HfsWalkEntry) => Promise<boolean> | boolean)
+
+/**
+ * Content transformer function type
+ */
+export type ContentTransformer<TContent = string> = (
+	content: string,
+) => TContent | Promise<TContent>
+
+/**
+ * Options for file operations
+ */
+export interface Options<TContent = string> {
+	content?: ContentTransformer<TContent>
+	filter?: Filter
+}
 
 /**
  * Represents a file system tree structure
