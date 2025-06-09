@@ -15,8 +15,6 @@ import type {
 	TreeNode,
 } from './types.js'
 
-const defaultIgnore = ['node_modules', '.git', '.DS_Store']
-
 export class Base {
 	protected hfs: Hfs
 
@@ -118,7 +116,7 @@ export class Base {
 		dirPath: string,
 		options?: Options<Content>,
 	): Promise<TreeNode<Content>[]> {
-		const entries = this.walk(dirPath, options?.filter ?? defaultIgnore)
+		const entries = this.walk(dirPath, options?.filter)
 		const nodes = new Map<string, TreeNode<Content>>()
 		const rootNodes: TreeNode<Content>[] = []
 
