@@ -1,30 +1,32 @@
 import { MemoryHfs } from '@humanfs/memory'
-import { basename, dirname, join } from 'pathe'
+import { join } from 'pathe'
 import { Base } from './base.js'
 import { isDirectoryNode, isFileNode } from './is.js'
-import { DirectoryNode, Options, TreeNode, TreeStructure } from './types.js'
+import { TreeNode, TreeStructure } from './types.js'
 
 export class Canopy extends Base {
 	constructor() {
 		super(new MemoryHfs())
 	}
 
-	async mount(input: TreeStructure | DirectoryNode, basePath?: string) {
-		if (isDirectoryNode(input)) {
-			await this.#writeDirectoryNode(input, input.path)
+	async mount<Content = string>(
+		input: TreeStructure | TreeNode<Content>[],
+	): Promise<void> {
+		if (Array.isArray(input)) {
+			this.#mountNodes(input)
 		} else {
-			await this.#writeTree(input, basePath ?? '.')
+			await this.#writeTree(input, '.')
 		}
 	}
 
-	async #writeDirectoryNode(node: DirectoryNode, basePath: string) {
-		for (const child of node.children) {
-			const path = join(basePath, child.path)
-			if (isFileNode(child)) {
-				await this.hfs.write(path, child.content)
-			} else if (isDirectoryNode(child)) {
+	async #mountNodes<Content = string>(nodes: TreeNode<Content>[]) {
+		for (const node of nodes) {
+			if (isFileNode(node)) {
+				await this.hfs.write(node.path, node.content)
+			}
+			if (isDirectoryNode(node)) {
 				await this.hfs.createDirectory(node.name)
-				await this.#writeDirectoryNode(child, basePath)
+				await this.#mountNodes(node.children)
 			}
 		}
 	}
@@ -42,45 +44,5 @@ export class Canopy extends Base {
 				await this.#writeTree(node, fullPath)
 			}
 		}
-	}
-
-	async tree<Content = string>(
-		dirPath: string,
-		options?: Options<Content>,
-	): Promise<DirectoryNode<Content>> {
-		const entries = this.walk(dirPath, options?.filter)
-		const modified = await this.hfs.lastModified(dirPath)
-
-		const base = basename(dirPath)
-		const rootNode: DirectoryNode<Content> = {
-			depth: 0,
-			children: [],
-			modified,
-			path: base,
-			type: 'directory',
-			name: base,
-		}
-		const nodes = new Map<string, TreeNode<Content>>([
-			[rootNode.path, rootNode],
-		])
-
-		for await (const entry of entries) {
-			const fullPath = join(dirPath, entry.path)
-			const path = join(rootNode.path, entry.path)
-			const node = await this.createNode(
-				fullPath,
-				{ ...entry, path },
-				options?.content,
-			)
-
-			nodes.set(node.path, node)
-
-			const parentNode = nodes.get(dirname(node.path))
-			if (parentNode?.type === 'directory') {
-				parentNode.children.push(node)
-			}
-		}
-
-		return rootNode
 	}
 }

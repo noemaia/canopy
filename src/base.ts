@@ -1,11 +1,9 @@
 import { type Hfs } from '@humanfs/core'
 import type { HfsWalkEntry } from '@humanfs/types'
 import ignore from 'ignore'
-import { dirname, parse } from 'pathe'
+import { dirname, join, parse } from 'pathe'
 import { uint8ArrayToBase64 } from 'uint8array-extras'
-import { assertFileNode } from './is.js'
 import type {
-	BaseNode,
 	ContentTransformer,
 	ContentType,
 	DirectoryNode,
@@ -19,17 +17,12 @@ import type {
 
 const defaultIgnore = ['node_modules', '.git', '.DS_Store']
 
-export abstract class Base {
+export class Base {
 	protected hfs: Hfs
 
 	constructor(hfs: Hfs) {
 		this.hfs = hfs
 	}
-
-	abstract tree<Content = string>(
-		dirPath: string,
-		options?: Options<Content>,
-	): Promise<DirectoryNode<Content>>
 
 	async read<T extends ContentType = 'text'>(
 		filePath: string,
@@ -85,10 +78,6 @@ export abstract class Base {
 		return await this.hfs.delete(path)
 	}
 
-	list(dirPath: string) {
-		return this.hfs.list(dirPath)
-	}
-
 	walk(dirPath: string, filter?: Filter): AsyncIterable<HfsWalkEntry> {
 		const filterFn = this.#createFilter(filter)
 
@@ -125,75 +114,83 @@ export abstract class Base {
 		return this.hfs.logEnd(name)
 	}
 
-	async file<Content = string>(
-		filePath: string,
-		options?: Pick<Options<Content>, 'content'>,
-	): Promise<FileNode<Content> | undefined> {
-		for await (const entry of this.walk(dirname(filePath))) {
-			if (entry.isFile && filePath === entry.path) {
-				const file = await this.createNode(entry.path, entry, options?.content)
-				assertFileNode<Content>(file)
-				return file
-			}
-		}
-	}
-
-	async *files<Content = string>(
+	async directory<Content = string>(
 		dirPath: string,
 		options?: Options<Content>,
-	): AsyncIterable<FileNode<Content>> {
-		const filter = options?.filter ?? defaultIgnore
-		for await (const entry of this.walk(dirPath, filter)) {
-			if (entry.isDirectory) {
-				continue
+	): Promise<TreeNode<Content>[]> {
+		const entries = this.walk(dirPath, options?.filter ?? defaultIgnore)
+		const nodes = new Map<string, TreeNode<Content>>()
+		const rootNodes: TreeNode<Content>[] = []
+
+		for await (const entry of entries) {
+			const path = join(dirPath, entry.path)
+			const node = await this.createNode(path, entry, options?.content)
+
+			nodes.set(path, node)
+
+			if (node.depth === 1) {
+				rootNodes.push(node)
 			}
 
-			const file = await this.createNode(entry.path, entry, options?.content)
-			assertFileNode<Content>(file)
-			yield file
+			const parentNode = nodes.get(dirname(path))
+			if (parentNode?.type === 'directory') {
+				parentNode.children.push(node)
+			}
 		}
+
+		return rootNodes
 	}
 
 	protected async createNode<TContent = string>(
-		path: string,
+		dirPath: string,
 		entry: HfsWalkEntry,
 		contentTransformer?: ContentTransformer<TContent>,
 	): Promise<TreeNode<TContent>> {
-		const modified = await this.hfs.lastModified(path)
+		if (entry.isFile) {
+			return await this.createFileNode(dirPath, entry, contentTransformer)
+		}
+
+		return this.createDirectoryNode(entry)
+	}
+
+	protected createDirectoryNode<TContent = string>(
+		entry: HfsWalkEntry,
+	): DirectoryNode<TContent> {
+		return {
+			name: entry.name,
+			depth: entry.depth,
+			path: entry.path,
+			type: 'directory',
+			children: [],
+		}
+	}
+
+	protected async createFileNode<TContent = string>(
+		path: string,
+		entry: HfsWalkEntry,
+		contentTransformer?: ContentTransformer<TContent>,
+	): Promise<FileNode<TContent>> {
 		const parsed = parse(path)
-		const base: BaseNode = {
+		const size = await this.hfs.size(path)
+		const rawContent = await this.read(path)
+		if (typeof rawContent === 'undefined') {
+			throw Error(`Error reading ${path}`)
+		}
+
+		const content = contentTransformer
+			? await contentTransformer(rawContent)
+			: (rawContent as TContent)
+
+		return {
+			isSymlink: entry.isSymlink,
+			type: 'file',
+			ext: parsed.ext,
+			size,
+			base: parsed.base,
+			content,
 			name: parsed.name,
 			depth: entry.depth,
 			path: entry.path,
-			modified,
 		}
-
-		if (entry.isFile) {
-			const size = await this.hfs.size(path)
-			const rawContent = await this.read(path)
-			if (typeof rawContent === 'undefined') {
-				throw Error(`Error reading ${path}`)
-			}
-
-			const content = contentTransformer
-				? await contentTransformer(rawContent)
-				: (rawContent as TContent)
-
-			return {
-				isSymlink: entry.isSymlink,
-				type: 'file',
-				ext: parsed.ext,
-				size,
-				base: parsed.base,
-				content,
-				...base,
-			} satisfies FileNode<TContent>
-		}
-
-		return {
-			type: 'directory',
-			children: [],
-			...base,
-		} satisfies DirectoryNode<TContent>
 	}
 }

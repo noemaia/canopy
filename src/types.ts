@@ -16,7 +16,6 @@ export type FileContent<T extends ContentType> = T extends 'text'
 export interface BaseNode {
 	name: string
 	path: string
-	modified: Date | undefined
 	depth: number
 }
 
