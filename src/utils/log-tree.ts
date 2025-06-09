@@ -16,8 +16,7 @@ const TREE_CHARS = {
 export interface TreeVisualizationOptions {
 	/** Show file extensions (default: true) */
 	extensions?: boolean
-	/** Show modification dates (default: false) */
-	showDates?: boolean
+
 	/** Custom prefix for each line (default: '') */
 	prefix?: string
 	/** Maximum depth to display (default: unlimited) */
@@ -71,12 +70,7 @@ export function generateTreeString(
 	nodes: TreeNode[],
 	options: TreeVisualizationOptions = {},
 ): string {
-	const {
-		extensions = true,
-		showDates = false,
-		prefix = '',
-		maxDepth = Infinity,
-	} = options
+	const { extensions = true, prefix = '', maxDepth = Infinity } = options
 
 	const lines: string[] = []
 
@@ -87,11 +81,6 @@ export function generateTreeString(
 			name += '/'
 		} else if (node.type === 'file' && extensions) {
 			name = node.base
-		}
-
-		if (showDates && node.modified) {
-			const date = node.modified.toLocaleDateString()
-			name += ` (${date})`
 		}
 
 		return name
