@@ -15,7 +15,6 @@ export type FileContent<T extends ContentType> = T extends 'text'
 
 export interface BaseNode {
 	name: string
-	root: string
 	path: string
 	modified: Date | undefined
 	depth: number
@@ -78,10 +77,9 @@ export interface Options<TContent = string> {
 
 /**
  * Represents a file system tree structure
+ * - string values represent file contents
+ * - object values represent directories (including empty directories as {})
  */
-export type TreeEntry =
-	| string // File content
-	| { directory: TreeStructure } // Directory with contents
-	| {} // Empty directory
-
-export type TreeStructure = Record<string, TreeEntry>
+export interface TreeStructure {
+	[key: string]: string | TreeStructure
+}

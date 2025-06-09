@@ -1,5 +1,3 @@
-export { Canopy } from './canopy.js'
-
 export type {
 	BaseNode,
 	ContentType,
@@ -8,7 +6,6 @@ export type {
 	FileNode,
 	Filter,
 	JsonValue,
-	TreeEntry,
 	TreeNode,
 	TreeStructure,
 } from './types.js'
