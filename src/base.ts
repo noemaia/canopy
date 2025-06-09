@@ -175,20 +175,22 @@ export class Base {
 			throw Error(`Error reading ${path}`)
 		}
 
-		const content = contentTransformer
-			? await contentTransformer(rawContent)
-			: (rawContent as TContent)
-
-		return {
+		const node: FileNode<TContent> = {
+			content: rawContent as TContent,
 			isSymlink: entry.isSymlink,
 			type: 'file',
 			ext: parsed.ext,
 			size,
 			base: parsed.base,
-			content,
 			name: parsed.name,
 			depth: entry.depth,
 			path: entry.path,
 		}
+
+		node.content = contentTransformer
+			? await contentTransformer({ ...node })
+			: (rawContent as TContent)
+
+		return node
 	}
 }
