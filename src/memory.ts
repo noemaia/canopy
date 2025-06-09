@@ -1,7 +1,6 @@
 import { MemoryHfs } from '@humanfs/memory'
 import { join } from 'pathe'
 import { Base } from './base.js'
-import { isDirectoryNode, isFileNode } from './is.js'
 import { TreeNode, TreeStructure } from './types.js'
 
 export class Canopy extends Base {
@@ -13,7 +12,7 @@ export class Canopy extends Base {
 		input: TreeStructure | TreeNode<Content>[],
 	): Promise<void> {
 		if (Array.isArray(input)) {
-			this.#mountNodes(input)
+			await this.#mountNodes(input)
 		} else {
 			await this.#writeTree(input, '.')
 		}
@@ -21,11 +20,10 @@ export class Canopy extends Base {
 
 	async #mountNodes<Content = string>(nodes: TreeNode<Content>[]) {
 		for (const node of nodes) {
-			if (isFileNode(node)) {
-				await this.hfs.write(node.path, node.content)
+			if (node.type === 'file') {
+				await this.hfs.write(node.path, node.content as string)
 			}
-			if (isDirectoryNode(node)) {
-				await this.hfs.createDirectory(node.name)
+			if (node.type === 'directory') {
 				await this.#mountNodes(node.children)
 			}
 		}
