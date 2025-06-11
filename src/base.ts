@@ -76,13 +76,19 @@ export class Base {
 		return await this.hfs.delete(path)
 	}
 
-	walk(dirPath: string, filter?: Filter): AsyncIterable<HfsWalkEntry> {
-		const filterFn = this.#createFilter(filter)
+	async *walk<Content = string>(
+		dirPath: string,
+		options?: Options<Content>,
+	): AsyncIterable<TreeNode<Content>> {
+		const filterFn = this.#createFilter(options?.filter)
 
-		return this.hfs.walk(dirPath, {
+		for await (const entry of this.hfs.walk(dirPath, {
 			directoryFilter: filterFn,
 			entryFilter: filterFn,
-		})
+		})) {
+			const path = join(dirPath, entry.path)
+			yield this.createNode(path, entry, options?.content)
+		}
 	}
 
 	#createFilter(
@@ -116,7 +122,11 @@ export class Base {
 		dirPath: string,
 		options?: Options<Content>,
 	): Promise<TreeNode<Content>[]> {
-		const entries = this.walk(dirPath, options?.filter)
+		const filterFn = this.#createFilter(options?.filter)
+		const entries = this.hfs.walk(dirPath, {
+			directoryFilter: filterFn,
+			entryFilter: filterFn,
+		})
 		const nodes = new Map<string, TreeNode<Content>>()
 		const rootNodes: TreeNode<Content>[] = []
 
