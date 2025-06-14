@@ -70,8 +70,27 @@ export type ContentTransformer<TOutput = string> = (
  * Options for file operations
  */
 export interface Options<TOutput = string> {
+	/**
+	 * Content transformer to process file contents
+	 */
 	content?: ContentTransformer<TOutput>
-	filter?: Filter
+
+	/**
+	 * Include filter - only entries that match this condition will be included
+	 * - Array: entries matching these patterns will be included
+	 * - Function: entries where function returns truthy will be included
+	 *
+	 * Note: Inclusion is first check before exclusion
+	 */
+	include?: Filter
+	/**
+	 * Ignore filter - entries that match this condition will be excluded
+	 * - Array: entries matching these patterns will be excluded
+	 * - Function: entries where function returns truthy will be excluded
+	 *
+	 T* Note: Inclusion is first check before exclusion
+	 */
+	ignore?: Filter
 }
 
 /**

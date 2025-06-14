@@ -1,6 +1,5 @@
 import { type Hfs } from '@humanfs/core'
 import type { HfsWalkEntry } from '@humanfs/types'
-import ignore from 'ignore'
 import { dirname, join, parse } from 'pathe'
 import { uint8ArrayToBase64 } from 'uint8array-extras'
 import type {
@@ -9,11 +8,11 @@ import type {
 	DirectoryNode,
 	FileContent,
 	FileNode,
-	Filter,
 	LogEntries,
 	Options,
 	TreeNode,
 } from './types.js'
+import { createFilter } from './utils/filter.js'
 
 export class Base {
 	protected hfs: Hfs
@@ -80,7 +79,10 @@ export class Base {
 		dirPath: string,
 		options?: Options<Content>,
 	): AsyncIterable<TreeNode<Content>> {
-		const filterFn = this.#createFilter(options?.filter)
+		const filterFn = createFilter({
+			ignore: options?.ignore,
+			include: options?.include,
+		})
 
 		for await (const entry of this.hfs.walk(dirPath, {
 			directoryFilter: filterFn,
@@ -89,25 +91,6 @@ export class Base {
 			const path = join(dirPath, entry.path)
 			yield this.createNode<Content>(path, entry, options?.content)
 		}
-	}
-
-	#createFilter(
-		patternsOrFilter?: Filter,
-	): ((entry: HfsWalkEntry) => Promise<boolean> | boolean) | undefined {
-		if (!patternsOrFilter) {
-			return
-		}
-
-		if (Array.isArray(patternsOrFilter)) {
-			const ig = ignore().add(patternsOrFilter)
-
-			return (entry: HfsWalkEntry) => {
-				// Return true to include (not ignored), false to exclude (ignored)
-				return !ig.ignores(entry.path)
-			}
-		}
-
-		return patternsOrFilter
 	}
 
 	logStart(name: string) {
@@ -122,7 +105,11 @@ export class Base {
 		dirPath: string,
 		options?: Options<Content>,
 	): Promise<TreeNode<Content>[]> {
-		const filterFn = this.#createFilter(options?.filter)
+		const filterFn = createFilter({
+			ignore: options?.ignore,
+			include: options?.include,
+		})
+
 		const entries = this.hfs.walk(dirPath, {
 			directoryFilter: filterFn,
 			entryFilter: filterFn,
