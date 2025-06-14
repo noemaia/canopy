@@ -62,15 +62,15 @@ export type Filter =
 /**
  * Content transformer function type
  */
-export type ContentTransformer<Content = string> = (
-	node: FileNode<Content>,
-) => Content | Promise<Content>
+export type ContentTransformer<TOutput = string> = (
+	node: FileNode<string>, // Input is always string content from file
+) => TOutput | Promise<TOutput>
 
 /**
  * Options for file operations
  */
-export interface Options<Content = string> {
-	content?: ContentTransformer<Content>
+export interface Options<TOutput = string> {
+	content?: ContentTransformer<TOutput>
 	filter?: Filter
 }
 

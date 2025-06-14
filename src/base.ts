@@ -87,7 +87,7 @@ export class Base {
 			entryFilter: filterFn,
 		})) {
 			const path = join(dirPath, entry.path)
-			yield this.createNode(path, entry, options?.content)
+			yield this.createNode<Content>(path, entry, options?.content)
 		}
 	}
 
@@ -118,7 +118,7 @@ export class Base {
 		return this.hfs.logEnd(name)
 	}
 
-	async directory<Content = string>(
+	async directory<Content>(
 		dirPath: string,
 		options?: Options<Content>,
 	): Promise<TreeNode<Content>[]> {
@@ -132,7 +132,7 @@ export class Base {
 
 		for await (const entry of entries) {
 			const path = join(dirPath, entry.path)
-			const node = await this.createNode(path, entry, options?.content)
+			const node = await this.createNode<Content>(path, entry, options?.content)
 
 			nodes.set(path, node)
 
@@ -149,7 +149,7 @@ export class Base {
 		return rootNodes
 	}
 
-	protected async createNode<TContent = string>(
+	protected async createNode<TContent>(
 		dirPath: string,
 		entry: HfsWalkEntry,
 		contentTransformer?: ContentTransformer<TContent>,
@@ -173,7 +173,7 @@ export class Base {
 		}
 	}
 
-	protected async createFileNode<TContent = string>(
+	protected async createFileNode<TContent>(
 		path: string,
 		entry: HfsWalkEntry,
 		contentTransformer?: ContentTransformer<TContent>,
@@ -198,7 +198,8 @@ export class Base {
 		}
 
 		node.content = contentTransformer
-			? await contentTransformer({ ...node })
+			? // @ts-expect-error - FIXME
+				await contentTransformer({ ...node })
 			: (rawContent as TContent)
 
 		return node
